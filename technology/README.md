@@ -5,6 +5,8 @@
 ## 目录结构
 
 - `TECH_STACK.md` — 技术选型主文档（**开发前必读**）
+- `ARCHITECTURE.md` — 当前研发执行的技术架构摘要
+- `API_SPEC.md` — 当前阶段接口执行基线
 - 可按需追加：`API_SPEC.md`（接口规范）、`DB_SCHEMA.md`（数据库设计）、`DEPLOY.md`（部署方案）等
 
 ## 使用规则

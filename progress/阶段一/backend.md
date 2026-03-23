@@ -11,15 +11,17 @@
 | 状态 | 项 |
 |------|----|
 | 已完成 | |
-| 待完成 | 后端项目脚手架初始化（`app/backend/`） |
-| 待完成 | 数据库 Schema：User（用户）、Role（角色）、Permission（权限） |
-| 待完成 | JWT 鉴权中间件（登录签发 Token、请求校验 Token） |
-| 待完成 | 登录 / 登出 API（`POST /api/auth/login`、`POST /api/auth/logout`） |
-| 待完成 | 用户管理 CRUD API（`/api/users`） |
-| 待完成 | 角色管理 CRUD API（`/api/roles`） |
-| 待完成 | 权限配置 API（`/api/roles/:id/permissions`） |
-| 待完成 | 只读角色标识与基础权限拦截（接口级鉴权中间件） |
-| 存在问题 | |
+| 待完成 | 后端项目脚手架初始化（`app/backend/`，Laravel 10） |
+| 待完成 | 数据库 Schema：User、Role、Permission、Menu、AuditLog |
+| 待完成 | Sanctum Bearer Token 鉴权（登录签发 Token、请求校验 Token） |
+| 待完成 | 认证 API：`POST /api/v1/auth/login`、`POST /api/v1/auth/logout`、`POST /api/v1/auth/change-password`、`GET /api/v1/auth/me`、`GET /api/v1/auth/menus` |
+| 待完成 | 用户管理 CRUD API：`/api/v1/admin/users` |
+| 待完成 | 角色管理 CRUD / 复制 / 状态切换 API：`/api/v1/admin/roles` |
+| 待完成 | 菜单管理 API：`/api/v1/admin/menus` 与菜单树接口 |
+| 待完成 | 权限配置 API：`PUT /api/v1/admin/roles/{id}/permissions` |
+| 待完成 | 审计日志列表与详情 API：`/api/v1/admin/audit-logs` |
+| 待完成 | 接口级权限拦截与只读角色策略 |
+| 存在问题 | 代码尚未开始，但需求、技术架构和接口基线已明确；当前应严格以 `technology/API_SPEC.md` 为准，不再使用旧的 JWT / `/api/auth/*` 口径 |
 
 ---
 

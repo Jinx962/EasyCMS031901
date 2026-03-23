@@ -22,15 +22,16 @@
 ## 阶段一（Day 1–5）：项目初始化 · 认证 · 布局 · 权限框架
 
 - **目标**：搭建技术底座，完成登录认证与基础 RBAC 权限体系，实现整体布局框架与后台用户/角色管理入口。
-- **技术选型**：Next.js 14（App Router）+ TypeScript + Prisma + PostgreSQL + TailwindCSS + shadcn/ui
+- **技术选型**：React 18 + Vite + TypeScript + TailwindCSS 4 + shadcn/ui + React Router 7；后端为 Laravel 10 + MySQL 8 + Redis 7 + Sanctum
 - **交付物**：
-  - 项目脚手架初始化（`app/` 下前后端目录结构）
-  - 数据库 Schema 基础模型：User、Role、Permission
-  - 登录 / 登出页面与 JWT 鉴权中间件
+  - 项目脚手架初始化（`app/frontend/` 与 `app/backend/`）
+  - 数据库 Schema 基础模型：User、Role、Permission、Menu、AuditLog
+  - 登录 / 登出页面与 Bearer Token 鉴权链路
   - 整体布局：顶部导航栏（模块切换页签）、左侧一级侧边栏、面包屑、内容区
   - 后台管理 → 用户列表（增删改查）
   - 后台管理 → 角色列表与角色-权限配置页
-  - 只读角色标识与基础权限拦截（页面级）
+  - 后台管理 → 菜单管理与审计日志基础能力
+  - 只读角色标识与基础权限拦截（页面级 + 接口级）
 
 ---
 
