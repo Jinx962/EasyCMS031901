@@ -2,6 +2,7 @@ import { clearToken, getToken } from "./auth";
 
 const API_BASE_URL =
   (typeof window !== "undefined" && (window as Window & { __EASYCMS_API_BASE_URL?: string }).__EASYCMS_API_BASE_URL) ||
+  import.meta.env.VITE_API_BASE_URL ||
   "https://dev-api.easycms.com";
 
 export interface ApiResponse<T> {
@@ -64,6 +65,9 @@ export async function httpRequest<T>(
   const payload = (await response.json()) as ApiResponse<T>;
   if (payload.code === 1002) {
     clearToken();
+    if (typeof window !== "undefined" && window.location.pathname !== "/login") {
+      window.location.replace("/login");
+    }
   }
   if (!response.ok || payload.code !== 0) {
     throw new ApiError(payload.message || "请求失败", payload.code ?? 5000);

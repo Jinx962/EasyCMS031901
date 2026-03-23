@@ -11,7 +11,11 @@ import {
   Search,
   ChevronRight,
   Home,
+  LogOut,
 } from "lucide-react";
+import { toast } from "sonner";
+import { logout } from "../api/auth";
+import { clearToken } from "../lib/auth";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
@@ -94,6 +98,18 @@ export default function AdminLayout() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     // 全局搜索占位（后续对接接口）
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch {
+      // 即使接口失败，也要确保本地会话清除，避免用户卡死在失效态
+    } finally {
+      clearToken();
+      toast.success("已退出登录");
+      navigate("/login", { replace: true });
+    }
   };
 
   return (
@@ -206,6 +222,10 @@ export default function AdminLayout() {
                   ))}
                 </BreadcrumbList>
               </Breadcrumb>
+              <Button variant="outline" size="sm" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-1" />
+                退出登录
+              </Button>
             </div>
 
             <form onSubmit={handleSearch} className="relative w-72">

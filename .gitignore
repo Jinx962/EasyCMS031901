@@ -6,6 +6,9 @@ vendor/
 
 # 本地私密配置（令牌、密钥等个人配置，不提交仓库）
 config/
+app/frontend/.env
+app/frontend/.env.local
+app/frontend/.env.*.local
 
 # 构建产物
 .next/
