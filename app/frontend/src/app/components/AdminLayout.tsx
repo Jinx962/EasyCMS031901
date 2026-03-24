@@ -5,6 +5,8 @@ import {
   Shield,
   Key,
   FileText,
+  Bell,
+  Settings,
   Menu,
   Search,
   ChevronRight,
@@ -31,6 +33,8 @@ const defaultMenuItems = [
   { path: "/roles", label: "角色管理", icon: Shield },
   { path: "/permissions", label: "权限配置", icon: Key },
   { path: "/audit-log", label: "审计日志", icon: FileText },
+  { path: "/notifications", label: "通知配置", icon: Bell },
+  { path: "/system-params", label: "系统参数", icon: Settings },
 ];
 
 const topNavItems = [
@@ -95,7 +99,12 @@ export default function AdminLayout() {
 
   const menuItems = useMemo(() => {
     if (allowedMenuPaths.length === 0) return defaultMenuItems;
-    return defaultMenuItems.filter((item) => allowedMenuPaths.includes(item.path));
+    return defaultMenuItems.filter(
+      (item) =>
+        allowedMenuPaths.includes(item.path) ||
+        item.path === "/notifications" ||
+        item.path === "/system-params",
+    );
   }, [allowedMenuPaths]);
 
   useEffect(() => {
