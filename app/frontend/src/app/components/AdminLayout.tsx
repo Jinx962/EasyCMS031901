@@ -1,17 +1,19 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router";
 import {
   Users,
   Shield,
   Key,
   FileText,
-  Bell,
-  Settings,
   Menu,
   Search,
   ChevronRight,
   Home,
+  LogOut,
 } from "lucide-react";
+import { toast } from "sonner";
+import { getCurrentUser, getCurrentUserMenus, logout } from "../api/auth";
+import { clearToken } from "../lib/auth";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
@@ -24,13 +26,11 @@ import {
   BreadcrumbSeparator,
 } from "./ui/breadcrumb";
 
-const menuItems = [
+const defaultMenuItems = [
   { path: "/users", label: "用户管理", icon: Users },
   { path: "/roles", label: "角色管理", icon: Shield },
   { path: "/permissions", label: "权限配置", icon: Key },
   { path: "/audit-log", label: "审计日志", icon: FileText },
-  { path: "/notifications", label: "通知配置", icon: Bell },
-  { path: "/system-params", label: "系统参数", icon: Settings },
 ];
 
 const topNavItems = [
@@ -57,6 +57,8 @@ const pathLabelMap: Record<string, string> = {
 export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const [userName, setUserName] = useState("");
+  const [allowedMenuPaths, setAllowedMenuPaths] = useState<string[]>([]);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -91,9 +93,46 @@ export default function AdminLayout() {
 
   const breadcrumbs = getBreadcrumbs();
 
+  const menuItems = useMemo(() => {
+    if (allowedMenuPaths.length === 0) return defaultMenuItems;
+    return defaultMenuItems.filter((item) => allowedMenuPaths.includes(item.path));
+  }, [allowedMenuPaths]);
+
+  useEffect(() => {
+    getCurrentUser()
+      .then((user) => setUserName(user.name))
+      .catch(() => {
+        clearToken();
+        navigate("/login", { replace: true });
+      });
+    getCurrentUserMenus()
+      .then((menus) => {
+        const paths = menus
+          .map((menu) => menu.route_path || "")
+          .filter((path): path is string => path.startsWith("/"));
+        setAllowedMenuPaths(paths);
+      })
+      .catch(() => {
+        // 菜单接口失败时回退到默认菜单，不阻塞页面
+        setAllowedMenuPaths([]);
+      });
+  }, [navigate]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     // 全局搜索占位（后续对接接口）
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch {
+      // logout 接口失败时仍清理本地会话，避免僵尸登录态
+    } finally {
+      clearToken();
+      toast.success("已退出登录");
+      navigate("/login", { replace: true });
+    }
   };
 
   return (
@@ -206,6 +245,13 @@ export default function AdminLayout() {
                   ))}
                 </BreadcrumbList>
               </Breadcrumb>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-[#00000073]">{userName ? `当前用户：${userName}` : "当前用户"}</span>
+                <Button variant="outline" size="sm" onClick={handleLogout}>
+                  <LogOut className="h-4 w-4 mr-1" />
+                  退出登录
+                </Button>
+              </div>
             </div>
 
             <form onSubmit={handleSearch} className="relative w-72">
@@ -220,11 +266,11 @@ export default function AdminLayout() {
           </div>
 
           {/* 页面内容 */}
-          <ScrollArea className="flex-1 bg-[#f5f5f5]">
+          <div className="flex-1 min-h-0 overflow-y-auto bg-[#f5f5f5]">
             <div className="p-6">
               <Outlet />
             </div>
-          </ScrollArea>
+          </div>
         </div>
       </div>
     </div>

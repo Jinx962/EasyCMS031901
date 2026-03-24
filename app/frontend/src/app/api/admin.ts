@@ -42,6 +42,25 @@ export interface CreateUserPayload {
   remark?: string;
 }
 
+export interface UserDetail extends UserListItem {
+  must_change_password: boolean;
+  remark: string | null;
+  project_ids: string[];
+  login_fail_count: number;
+  locked_at: string | null;
+  created_by: number | null;
+  updated_at: string;
+}
+
+export interface UpdateUserPayload {
+  name: string;
+  user_type: number;
+  org_id: string;
+  role_ids: number[];
+  project_ids?: string[];
+  remark?: string;
+}
+
 export interface RoleListItem {
   id: number;
   name: string;
@@ -53,6 +72,16 @@ export interface RoleListItem {
   status_label: string;
   user_count: number;
   updated_at: string;
+}
+
+export interface RoleDetail extends RoleListItem {
+  created_at: string;
+}
+
+export interface UpdateRolePayload {
+  name: string;
+  description?: string;
+  status: number;
 }
 
 export interface RoleListQuery {
@@ -136,6 +165,17 @@ export async function createUser(payload: CreateUserPayload) {
   });
 }
 
+export async function getUserDetail(id: number) {
+  return httpRequest<UserDetail>(`/api/v1/admin/users/${id}`);
+}
+
+export async function updateUser(id: number, payload: UpdateUserPayload) {
+  return httpRequest<UserDetail>(`/api/v1/admin/users/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function updateUserStatus(id: number, status: number) {
   return httpRequest<null>(`/api/v1/admin/users/${id}/status`, {
     method: "PATCH",
@@ -150,6 +190,17 @@ export async function getRoles(query: RoleListQuery) {
 export async function createRole(payload: CreateRolePayload) {
   return httpRequest<{ id: number }>("/api/v1/admin/roles", {
     method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getRoleDetail(id: number) {
+  return httpRequest<RoleDetail>(`/api/v1/admin/roles/${id}`);
+}
+
+export async function updateRole(id: number, payload: UpdateRolePayload) {
+  return httpRequest<RoleDetail>(`/api/v1/admin/roles/${id}`, {
+    method: "PUT",
     body: JSON.stringify(payload),
   });
 }
