@@ -2,22 +2,26 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, RotateCcw, Save } from "lucide-react";
 import { toast } from "sonner";
 import {
-  getMenuTree,
   getRolePermissions,
   getRoles,
   updateRolePermissions,
-  type MenuTreeItem,
   type RoleListItem,
 } from "../api/admin";
+import { getCurrentUserMenus, type CurrentUserMenu } from "../api/auth";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 
+type OperationNode = {
+  permission: string;
+  name: string;
+};
+
 type PageNode = {
   id: string;
   name: string;
-  permissions: string[];
+  operations: OperationNode[];
 };
 
 type ModuleNode = {
@@ -26,34 +30,20 @@ type ModuleNode = {
   pages: PageNode[];
 };
 
-const actionKeywordList = [
-  { id: "view", name: "查看", keywords: ["view", "list", "read"] },
-  { id: "create", name: "新建", keywords: ["create", "add"] },
-  { id: "edit", name: "编辑", keywords: ["edit", "update"] },
-  { id: "delete", name: "删除", keywords: ["delete", "remove"] },
-  { id: "import", name: "导入", keywords: ["import"] },
-  { id: "export", name: "导出", keywords: ["export"] },
-  { id: "approve", name: "审批", keywords: ["approve", "review", "sign"] },
-  { id: "unlock", name: "解锁", keywords: ["unlock"] },
-];
-
-function classifyAction(permission: string) {
-  const normalized = permission.toLowerCase();
-  const found = actionKeywordList.find((action) => action.keywords.some((keyword) => normalized.includes(keyword)));
-  return found?.name || "其他";
-}
-
-function normalizeMenuTree(tree: MenuTreeItem[]): ModuleNode[] {
+function normalizeMenuTree(tree: CurrentUserMenu[]): ModuleNode[] {
   const modules: ModuleNode[] = [];
 
-  const collectPermissions = (nodes: MenuTreeItem[]): string[] => {
-    const items: string[] = [];
+  const collectOperations = (nodes: CurrentUserMenu[]): OperationNode[] => {
+    const items: OperationNode[] = [];
     nodes.forEach((node) => {
       if (node.permission && node.type === 3) {
-        items.push(node.permission);
+        items.push({
+          permission: node.permission,
+          name: node.name,
+        });
       }
       if (Array.isArray(node.children) && node.children.length > 0) {
-        items.push(...collectPermissions(node.children));
+        items.push(...collectOperations(node.children));
       }
     });
     return items;
@@ -63,18 +53,18 @@ function normalizeMenuTree(tree: MenuTreeItem[]): ModuleNode[] {
     const pages: PageNode[] = [];
     if (Array.isArray(module.children) && module.children.length > 0) {
       module.children.forEach((page) => {
-        const pagePermissions = collectPermissions([page]);
+        const pageOperations = collectOperations([page]);
         pages.push({
           id: String(page.id),
           name: page.name,
-          permissions: pagePermissions,
+          operations: pageOperations,
         });
       });
     } else {
       pages.push({
         id: String(module.id),
         name: module.name,
-        permissions: collectPermissions([module]),
+        operations: collectOperations([module]),
       });
     }
     modules.push({
@@ -111,7 +101,10 @@ export default function PermissionConfig() {
   }, [selectedRole]);
 
   const permissionCount = useMemo(() => {
-    return modules.reduce((total, module) => total + module.pages.reduce((count, page) => count + page.permissions.length, 0), 0);
+    return modules.reduce(
+      (total, module) => total + module.pages.reduce((count, page) => count + page.operations.length, 0),
+      0,
+    );
   }, [modules]);
 
   const selectedCount = permissions.size;
@@ -135,14 +128,15 @@ export default function PermissionConfig() {
 
   const togglePage = (page: PageNode) => {
     if (isSystemAdminRole) return;
-    const allChecked = page.permissions.length > 0 && page.permissions.every((permission) => permissions.has(permission));
+    const allChecked =
+      page.operations.length > 0 && page.operations.every((op) => permissions.has(op.permission));
     setPermissions((prev) => {
       const next = new Set(prev);
-      page.permissions.forEach((permission) => {
+      page.operations.forEach((op) => {
         if (allChecked) {
-          next.delete(permission);
+          next.delete(op.permission);
         } else {
-          next.add(permission);
+          next.add(op.permission);
         }
       });
       return next;
@@ -151,15 +145,16 @@ export default function PermissionConfig() {
 
   const toggleModule = (module: ModuleNode) => {
     if (isSystemAdminRole) return;
-    const modulePermissions = module.pages.flatMap((page) => page.permissions);
-    const allChecked = modulePermissions.length > 0 && modulePermissions.every((permission) => permissions.has(permission));
+    const moduleOperations = module.pages.flatMap((page) => page.operations);
+    const allChecked =
+      moduleOperations.length > 0 && moduleOperations.every((op) => permissions.has(op.permission));
     setPermissions((prev) => {
       const next = new Set(prev);
-      modulePermissions.forEach((permission) => {
+      moduleOperations.forEach((op) => {
         if (allChecked) {
-          next.delete(permission);
+          next.delete(op.permission);
         } else {
-          next.add(permission);
+          next.add(op.permission);
         }
       });
       return next;
@@ -167,12 +162,16 @@ export default function PermissionConfig() {
   };
 
   const loadInitData = async () => {
-    const [roleData, menuTree] = await Promise.all([getRoles({ page: 1, per_page: 100 }), getMenuTree(false)]);
+    // 模块/操作权限来源：以当前账号的 `auth/menus` 为准（与后端菜单树结构一致）
+    const [roleData, menus] = await Promise.all([
+      getRoles({ page: 1, per_page: 100 }),
+      getCurrentUserMenus(),
+    ]);
     setRoles(roleData.list);
     if (roleData.list.length > 0) {
       setSelectedRoleId(String(roleData.list[0].id));
     }
-    const normalized = normalizeMenuTree(menuTree);
+    const normalized = normalizeMenuTree(menus);
     setModules(normalized);
     setExpandedModules(normalized.slice(0, 2).map((item) => item.id));
   };
@@ -203,13 +202,7 @@ export default function PermissionConfig() {
       .finally(() => setLoading(false));
   }, [selectedRoleId]);
 
-  useEffect(() => {
-    if (!isSystemAdminRole) return;
-    const allPermissions = modules.flatMap((module) => module.pages.flatMap((page) => page.permissions));
-    const next = new Set(allPermissions);
-    setPermissions(next);
-    setInitialPermissions(new Set(next));
-  }, [isSystemAdminRole, modules]);
+  // 系统管理员角色由后端 `getRolePermissions` 返回全部 type=3 权限，不在此页面用模块列表覆盖
 
   const handleReset = () => {
     if (isSystemAdminRole) return;
@@ -285,9 +278,9 @@ export default function PermissionConfig() {
           <ScrollArea className="h-[calc(100%-57px)]">
             <div className="p-2">
               {modules.map((module) => {
-                const modulePermissions = module.pages.flatMap((page) => page.permissions);
+                const moduleOperations = module.pages.flatMap((page) => page.operations);
                 const moduleChecked =
-                  modulePermissions.length > 0 && modulePermissions.every((permission) => permissions.has(permission));
+                  moduleOperations.length > 0 && moduleOperations.every((op) => permissions.has(op.permission));
                 return (
                   <div key={module.id} className="mb-1">
                     <div
@@ -311,7 +304,7 @@ export default function PermissionConfig() {
                       <div className="ml-6 mt-1 space-y-1">
                         {module.pages.map((page) => {
                           const pageChecked =
-                            page.permissions.length > 0 && page.permissions.every((permission) => permissions.has(permission));
+                            page.operations.length > 0 && page.operations.every((op) => permissions.has(op.permission));
                           return (
                             <div key={page.id} className="flex items-center gap-2 px-3 py-2 rounded hover:bg-[#f5f5f5]">
                               <Checkbox checked={pageChecked} onCheckedChange={() => togglePage(page)} disabled={isSystemAdminRole} />
@@ -351,19 +344,19 @@ export default function PermissionConfig() {
                             <div key={page.id} className="flex items-start gap-4 py-3 border-b border-[#f0f0f0] last:border-0">
                               <div className="w-40 text-sm text-[#000000d9]">{page.name}</div>
                               <div className="flex items-center gap-6 flex-1 flex-wrap">
-                                {page.permissions.length === 0 ? (
+                                {page.operations.length === 0 ? (
                                   <span className="text-sm text-[#00000073]">暂无操作项</span>
                                 ) : (
-                                  page.permissions.map((permission) => (
-                                    <div key={permission} className="flex items-center gap-2">
+                                  page.operations.map((op) => (
+                                    <div key={op.permission} className="flex items-center gap-2">
                                       <Checkbox
-                                        id={permission}
-                                        checked={permissions.has(permission)}
-                                        onCheckedChange={() => togglePermission(permission)}
+                                        id={op.permission}
+                                        checked={permissions.has(op.permission)}
+                                        onCheckedChange={() => togglePermission(op.permission)}
                                         disabled={isSystemAdminRole}
                                       />
-                                      <label htmlFor={permission} className="text-sm text-[#00000073] cursor-pointer">
-                                        {classifyAction(permission)}
+                                      <label htmlFor={op.permission} className="text-sm text-[#00000073] cursor-pointer">
+                                        {op.name}
                                       </label>
                                     </div>
                                   ))
