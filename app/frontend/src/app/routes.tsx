@@ -1,4 +1,4 @@
-import { createBrowserRouter, redirect } from "react-router";
+import { createBrowserRouter, redirect, type LoaderFunctionArgs } from "react-router";
 import AdminLayout from "./components/AdminLayout";
 import Login from "./pages/Login";
 import UserManagement from "./pages/UserManagement";
@@ -11,13 +11,29 @@ import AuditLog from "./pages/AuditLog";
 import NotificationConfig from "./pages/NotificationConfig";
 import SystemParams from "./pages/SystemParams";
 import NotFound from "./pages/NotFound";
-import { getToken } from "./lib/auth";
+import NoPermission from "./pages/NoPermission";
+import { getCurrentUser, getCurrentUserMenus } from "./api/auth";
+import { getToken, logoutToLogin } from "./lib/auth";
+import { hasRouteAccess, setAccessFromMenus } from "./lib/permission";
 
-function requireAuth() {
+async function requireAuth({ request }: LoaderFunctionArgs) {
   if (!getToken()) {
     throw redirect("/login");
   }
-  return null;
+  try {
+    await getCurrentUser();
+    const menus = await getCurrentUserMenus();
+    setAccessFromMenus(menus);
+
+    const pathname = new URL(request.url).pathname;
+    if (!hasRouteAccess(pathname)) {
+      throw redirect("/403");
+    }
+    return null;
+  } catch {
+    logoutToLogin();
+    throw redirect("/login");
+  }
 }
 
 function redirectIfAuthed() {
@@ -48,6 +64,7 @@ export const router = createBrowserRouter([
       { path: "audit-log", Component: AuditLog },
       { path: "notifications", Component: NotificationConfig },
       { path: "system-params", Component: SystemParams },
+      { path: "403", Component: NoPermission },
       { path: "*", Component: NotFound },
     ],
   },

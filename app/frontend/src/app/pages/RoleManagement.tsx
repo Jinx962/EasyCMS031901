@@ -4,6 +4,7 @@ import { Copy, MoreHorizontal, Plus, PowerOff, Users } from "lucide-react";
 import { toast } from "sonner";
 import { copyRole, createRole, getRoles, updateRoleStatus, type RoleListItem } from "../api/admin";
 import { formatDateTime } from "../lib/date";
+import { can } from "../lib/permission";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
@@ -35,6 +36,9 @@ import { Textarea } from "../components/ui/textarea";
 const emptyForm = { name: "", code: "", description: "" };
 
 export default function RoleManagement() {
+  const canCreateRole = can("admin:roles:create");
+  const canCopyRole = can("admin:roles:create");
+  const canToggleRoleStatus = can("admin:roles:toggle-status");
   const [list, setList] = useState<RoleListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
@@ -132,7 +136,7 @@ export default function RoleManagement() {
             </SelectContent>
           </Select>
         </div>
-        <Button className="bg-[#1890ff] hover:bg-[#40a9ff]" onClick={() => setCreateOpen(true)}>
+        <Button className="bg-[#1890ff] hover:bg-[#40a9ff]" onClick={() => setCreateOpen(true)} disabled={!canCreateRole}>
           <Plus className="h-4 w-4 mr-2" />新建角色
         </Button>
       </div>
@@ -181,8 +185,8 @@ export default function RoleManagement() {
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild><Link to={`/roles/${role.id}`}>查看详情</Link></DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleCopy(role)}><Copy className="h-4 w-4 mr-2" />复制角色</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleToggleStatus(role)}>
+                        <DropdownMenuItem onClick={() => handleCopy(role)} disabled={!canCopyRole}><Copy className="h-4 w-4 mr-2" />复制角色</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleToggleStatus(role)} disabled={!canToggleRoleStatus}>
                           <PowerOff className="h-4 w-4 mr-2" />{role.status === 1 ? "停用角色" : "启用角色"}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -225,7 +229,7 @@ export default function RoleManagement() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>取消</Button>
-            <Button className="bg-[#1890ff] hover:bg-[#40a9ff]" onClick={handleCreate}>确定</Button>
+            <Button className="bg-[#1890ff] hover:bg-[#40a9ff]" onClick={handleCreate} disabled={!canCreateRole}>确定</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

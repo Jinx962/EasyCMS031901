@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
-import { clearToken, getToken } from "./auth";
+import { toast } from "sonner";
+import { getToken, logoutToLogin } from "./auth";
 
 const runtimeApiBaseUrl =
   typeof window !== "undefined"
@@ -28,6 +29,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public code: number,
+    public data?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -73,6 +75,18 @@ function buildQuery(query?: Record<string, unknown>) {
   return queryString ? `?${queryString}` : "";
 }
 
+function notifySessionExpired() {
+  if (typeof window === "undefined") return;
+
+  const key = "easycms_session_expired_notified_at";
+  const now = Date.now();
+  const last = Number(sessionStorage.getItem(key) || 0);
+  if (now - last < 1500) return;
+
+  sessionStorage.setItem(key, String(now));
+  toast.error("Token 失效，请重新登录");
+}
+
 export async function httpRequest<T>(
   path: string,
   options: RequestInit & {
@@ -95,15 +109,19 @@ export async function httpRequest<T>(
     },
   });
 
+  // 部分后端/网关 401 可能不返回标准业务体，先兜底执行被动登出。
+  if (response.status === 401) {
+    notifySessionExpired();
+    logoutToLogin();
+  }
+
   const payload = await readApiResponseBody<T>(response);
   if (payload.code === 1002) {
-    clearToken();
-    if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-      window.location.replace("/login");
-    }
+    notifySessionExpired();
+    logoutToLogin();
   }
   if (!response.ok || payload.code !== 0) {
-    throw new ApiError(payload.message || "请求失败", payload.code ?? 5000);
+    throw new ApiError(payload.message || "请求失败", payload.code ?? 5000, payload.data);
   }
   return payload.data;
 }

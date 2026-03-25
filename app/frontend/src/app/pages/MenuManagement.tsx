@@ -9,6 +9,8 @@ import {
   updateMenuStatus,
   type MenuTreeItem,
 } from "../api/admin";
+import { can } from "../lib/permission";
+import { parseFieldErrors } from "../lib/form";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Input } from "../components/ui/input";
@@ -70,6 +72,10 @@ function flattenNodes(tree: MenuTreeItem[]): MenuTreeItem[] {
 }
 
 export default function MenuManagement() {
+  const canCreateMenu = can("admin:menus:create");
+  const canEditMenu = can("admin:menus:edit");
+  const canToggleMenuStatus = can("admin:menus:toggle-status");
+  const canDeleteMenu = can("admin:menus:delete");
   const [tree, setTree] = useState<MenuTreeItem[]>([]);
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(false);
@@ -78,6 +84,7 @@ export default function MenuManagement() {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<MenuForm>(emptyForm);
   const [current, setCurrent] = useState<MenuTreeItem | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const allNodes = useMemo(() => flattenNodes(tree), [tree]);
 
@@ -112,6 +119,7 @@ export default function MenuManagement() {
       parent_id: parent ? String(parent.id) : "root",
       type: parent && parent.type === 2 ? "3" : "2",
     });
+    setFieldErrors({});
     setOpenCreate(true);
   };
 
@@ -129,19 +137,29 @@ export default function MenuManagement() {
       status: String(node.status),
       remark: node.remark || "",
     });
+    setFieldErrors({});
     setOpenEdit(true);
   };
 
   const submitCreate = async () => {
     if (!form.name.trim() || !form.permission.trim()) {
+      setFieldErrors({
+        name: form.name.trim() ? "" : "请填写菜单名称",
+        permission: form.permission.trim() ? "" : "请填写权限标识",
+      });
       toast.error("请填写菜单名称和权限标识");
       return;
     }
     if (form.type === "2" && (!form.route_path.trim() || !form.component.trim())) {
+      setFieldErrors({
+        route_path: form.route_path.trim() ? "" : "菜单项必须填写路由路径",
+        component: form.component.trim() ? "" : "菜单项必须填写组件路径",
+      });
       toast.error("菜单项类型必须填写路由路径和组件路径");
       return;
     }
     try {
+      setFieldErrors({});
       setSubmitting(true);
       await createMenu({
         parent_id: form.parent_id === "root" ? null : Number(form.parent_id),
@@ -159,6 +177,10 @@ export default function MenuManagement() {
       setOpenCreate(false);
       await loadTree();
     } catch (error) {
+      const nextErrors = parseFieldErrors(error);
+      if (Object.keys(nextErrors).length > 0) {
+        setFieldErrors(nextErrors);
+      }
       toast.error(error instanceof Error ? error.message : "菜单创建失败");
     } finally {
       setSubmitting(false);
@@ -168,14 +190,20 @@ export default function MenuManagement() {
   const submitEdit = async () => {
     if (!current) return;
     if (!form.name.trim()) {
+      setFieldErrors({ name: "请填写菜单名称" });
       toast.error("请填写菜单名称");
       return;
     }
     if (form.type === "2" && (!form.route_path.trim() || !form.component.trim())) {
+      setFieldErrors({
+        route_path: form.route_path.trim() ? "" : "菜单项必须填写路由路径",
+        component: form.component.trim() ? "" : "菜单项必须填写组件路径",
+      });
       toast.error("菜单项类型必须填写路由路径和组件路径");
       return;
     }
     try {
+      setFieldErrors({});
       setSubmitting(true);
       await updateMenu(current.id, {
         parent_id: form.parent_id === "root" ? null : Number(form.parent_id),
@@ -192,6 +220,10 @@ export default function MenuManagement() {
       setCurrent(null);
       await loadTree();
     } catch (error) {
+      const nextErrors = parseFieldErrors(error);
+      if (Object.keys(nextErrors).length > 0) {
+        setFieldErrors(nextErrors);
+      }
       toast.error(error instanceof Error ? error.message : "菜单更新失败");
     } finally {
       setSubmitting(false);
@@ -243,17 +275,23 @@ export default function MenuManagement() {
           <div className="w-[180px] text-xs text-[#00000073] truncate px-2">{node.route_path || "-"}</div>
           <div className="w-[220px] flex items-center justify-end gap-1 pr-2">
             {node.type !== 3 && (
-              <Button variant="ghost" size="icon" onClick={() => openCreateDialog(node)} title="新增子节点">
+              <Button variant="ghost" size="icon" onClick={() => openCreateDialog(node)} title="新增子节点" disabled={!canCreateMenu}>
                 <Plus className="h-4 w-4" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" onClick={() => openEditDialog(node)} title="编辑">
+            <Button variant="ghost" size="icon" onClick={() => openEditDialog(node)} title="编辑" disabled={!canEditMenu}>
               <Edit className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => handleToggleStatus(node)} title={node.status === 1 ? "停用" : "启用"}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleToggleStatus(node)}
+              title={node.status === 1 ? "停用" : "启用"}
+              disabled={!canToggleMenuStatus}
+            >
               {node.status === 1 ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => handleDelete(node)} title="删除">
+            <Button variant="ghost" size="icon" onClick={() => handleDelete(node)} title="删除" disabled={!canDeleteMenu}>
               <Trash2 className="h-4 w-4 text-[#ff4d4f]" />
             </Button>
           </div>
@@ -270,7 +308,7 @@ export default function MenuManagement() {
           <h2 className="text-lg font-medium text-[#000000d9]">菜单管理</h2>
           <p className="text-sm text-[#00000073] mt-1">按后端菜单树接口维护目录/菜单项/按钮权限</p>
         </div>
-        <Button className="bg-[#1890ff] hover:bg-[#40a9ff]" onClick={() => openCreateDialog()}>
+        <Button className="bg-[#1890ff] hover:bg-[#40a9ff]" onClick={() => openCreateDialog()} disabled={!canCreateMenu}>
           <Plus className="h-4 w-4 mr-2" />
           新建根节点
         </Button>
@@ -299,10 +337,10 @@ export default function MenuManagement() {
             <DialogTitle>新建菜单节点</DialogTitle>
             <DialogDescription>按接口约束填写字段：type=2 时必须提供 route_path 和 component</DialogDescription>
           </DialogHeader>
-          <MenuFormFields form={form} setForm={setForm} allNodes={allNodes} editablePermission />
+          <MenuFormFields form={form} setForm={setForm} allNodes={allNodes} editablePermission fieldErrors={fieldErrors} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenCreate(false)}>取消</Button>
-            <Button onClick={submitCreate} disabled={submitting} className="bg-[#1890ff] hover:bg-[#40a9ff]">
+            <Button onClick={submitCreate} disabled={submitting || !canCreateMenu} className="bg-[#1890ff] hover:bg-[#40a9ff]">
               {submitting ? "提交中..." : "创建"}
             </Button>
           </DialogFooter>
@@ -315,10 +353,10 @@ export default function MenuManagement() {
             <DialogTitle>编辑菜单节点</DialogTitle>
             <DialogDescription>根据接口约束，permission 和 type 为创建后不可改字段</DialogDescription>
           </DialogHeader>
-          <MenuFormFields form={form} setForm={setForm} allNodes={allNodes} editablePermission={false} />
+          <MenuFormFields form={form} setForm={setForm} allNodes={allNodes} editablePermission={false} fieldErrors={fieldErrors} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenEdit(false)}>取消</Button>
-            <Button onClick={submitEdit} disabled={submitting} className="bg-[#1890ff] hover:bg-[#40a9ff]">
+            <Button onClick={submitEdit} disabled={submitting || !canEditMenu} className="bg-[#1890ff] hover:bg-[#40a9ff]">
               {submitting ? "提交中..." : "保存"}
             </Button>
           </DialogFooter>
@@ -338,6 +376,7 @@ function MenuFormFields({
   setForm: Dispatch<SetStateAction<MenuForm>>;
   allNodes: MenuTreeItem[];
   editablePermission: boolean;
+  fieldErrors: Record<string, string>;
 }) {
   return (
     <div className="grid gap-4 py-2">
@@ -373,6 +412,7 @@ function MenuFormFields({
         <div className="grid gap-2">
           <Label>名称 *</Label>
           <Input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} />
+          {fieldErrors.name ? <p className="text-xs text-red-500">{fieldErrors.name}</p> : null}
         </div>
         <div className="grid gap-2">
           <Label>权限标识 *</Label>
@@ -382,6 +422,7 @@ function MenuFormFields({
             disabled={!editablePermission}
             placeholder="admin:users:list"
           />
+          {fieldErrors.permission ? <p className="text-xs text-red-500">{fieldErrors.permission}</p> : null}
         </div>
       </div>
 
@@ -389,10 +430,12 @@ function MenuFormFields({
         <div className="grid gap-2">
           <Label>路由路径（type=2 必填）</Label>
           <Input value={form.route_path} onChange={(e) => setForm((prev) => ({ ...prev, route_path: e.target.value }))} />
+          {fieldErrors.route_path ? <p className="text-xs text-red-500">{fieldErrors.route_path}</p> : null}
         </div>
         <div className="grid gap-2">
           <Label>组件路径（type=2 必填）</Label>
           <Input value={form.component} onChange={(e) => setForm((prev) => ({ ...prev, component: e.target.value }))} />
+          {fieldErrors.component ? <p className="text-xs text-red-500">{fieldErrors.component}</p> : null}
         </div>
       </div>
 

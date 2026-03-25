@@ -4,6 +4,7 @@ import { ArrowLeft, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { getRoleDetail, getRolePermissions, getUsers, updateRole, type RoleDetail as RoleDetailModel, type UserListItem } from "../api/admin";
 import { formatDateTime } from "../lib/date";
+import { parseFieldErrors } from "../lib/form";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import {
@@ -32,6 +33,7 @@ export default function RoleDetail() {
     description: "",
     status: "1",
   });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const canSave = useMemo(() => Boolean(form.name.trim()), [form.name]);
 
@@ -52,6 +54,7 @@ export default function RoleDetail() {
         description: detail.description || "",
         status: String(detail.status),
       });
+      setFieldErrors({});
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "角色详情加载失败");
       setRole(null);
@@ -67,6 +70,7 @@ export default function RoleDetail() {
   const handleSave = async () => {
     if (!role || !canSave) return;
     try {
+      setFieldErrors({});
       setSaving(true);
       const updated = await updateRole(role.id, {
         name: form.name.trim(),
@@ -77,6 +81,10 @@ export default function RoleDetail() {
       setEditOpen(false);
       toast.success("角色信息已更新");
     } catch (error) {
+      const nextErrors = parseFieldErrors(error);
+      if (Object.keys(nextErrors).length > 0) {
+        setFieldErrors(nextErrors);
+      }
       toast.error(error instanceof Error ? error.message : "角色更新失败");
     } finally {
       setSaving(false);
@@ -175,11 +183,17 @@ export default function RoleDetail() {
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label>角色名称 *</Label>
-              <Input value={form.name} onChange={(e) => setForm((value) => ({ ...value, name: e.target.value }))} />
+              <Input
+                value={form.name}
+                onChange={(e) => setForm((value) => ({ ...value, name: e.target.value }))}
+                className={fieldErrors.name ? "border-red-500 focus-visible:ring-red-500" : undefined}
+              />
+              {fieldErrors.name ? <p className="text-xs text-red-500">{fieldErrors.name}</p> : null}
             </div>
             <div className="grid gap-2">
               <Label>角色说明</Label>
               <Textarea value={form.description} onChange={(e) => setForm((value) => ({ ...value, description: e.target.value }))} />
+              {fieldErrors.description ? <p className="text-xs text-red-500">{fieldErrors.description}</p> : null}
             </div>
             <div className="grid gap-2">
               <Label>状态</Label>

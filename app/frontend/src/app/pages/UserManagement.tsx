@@ -4,6 +4,7 @@ import { Download, MoreHorizontal, Plus, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import { createUser, getRoles, getUsers, updateUserStatus, type RoleOption, type UserListItem } from "../api/admin";
 import { formatDateTime } from "../lib/date";
+import { can } from "../lib/permission";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
@@ -49,6 +50,8 @@ const emptyForm = {
 };
 
 export default function UserManagement() {
+  const canCreateUser = can("admin:users:create");
+  const canToggleUserStatus = can("admin:users:toggle-status");
   const [list, setList] = useState<UserListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [lastPage, setLastPage] = useState(1);
@@ -202,13 +205,13 @@ export default function UserManagement() {
           </Select>
         </div>
         <div className="flex items-center gap-3">
-          <Button className="bg-[#1890ff] hover:bg-[#40a9ff]" onClick={() => setCreateOpen(true)}>
+          <Button className="bg-[#1890ff] hover:bg-[#40a9ff]" onClick={() => setCreateOpen(true)} disabled={!canCreateUser}>
             <Plus className="h-4 w-4 mr-2" />新建用户
           </Button>
-          <Button variant="outline" disabled={selectedIds.length === 0} onClick={() => handleChangeStatus(selectedIds, 1)}>
+          <Button variant="outline" disabled={selectedIds.length === 0 || !canToggleUserStatus} onClick={() => handleChangeStatus(selectedIds, 1)}>
             <Power className="h-4 w-4 mr-2" />批量启用
           </Button>
-          <Button variant="outline" disabled={selectedIds.length === 0} onClick={() => handleChangeStatus(selectedIds, 2)}>
+          <Button variant="outline" disabled={selectedIds.length === 0 || !canToggleUserStatus} onClick={() => handleChangeStatus(selectedIds, 2)}>
             <PowerOff className="h-4 w-4 mr-2" />批量停用
           </Button>
           <Button variant="outline" onClick={() => toast.info("导出接口暂未提供")}>
@@ -255,7 +258,10 @@ export default function UserManagement() {
                       <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild><Link to={`/users/${user.id}`}>查看详情</Link></DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleChangeStatus([user.id], user.status === 1 ? 2 : 1)}>
+                        <DropdownMenuItem
+                          onClick={() => handleChangeStatus([user.id], user.status === 1 ? 2 : 1)}
+                          disabled={!canToggleUserStatus}
+                        >
                           {user.status === 1 ? "停用" : "启用"}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -329,7 +335,7 @@ export default function UserManagement() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>取消</Button>
-            <Button onClick={handleCreate} className="bg-[#1890ff] hover:bg-[#40a9ff]">确定</Button>
+            <Button onClick={handleCreate} className="bg-[#1890ff] hover:bg-[#40a9ff]" disabled={!canCreateUser}>确定</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

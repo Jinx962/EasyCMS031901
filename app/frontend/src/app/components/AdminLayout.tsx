@@ -15,8 +15,9 @@ import {
   LogOut,
 } from "lucide-react";
 import { toast } from "sonner";
-import { getCurrentUser, getCurrentUserMenus, logout } from "../api/auth";
-import { clearToken } from "../lib/auth";
+import { getCurrentUser, logout } from "../api/auth";
+import { logoutToLogin } from "../lib/auth";
+import { getAllowedRoutes } from "../lib/permission";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
@@ -65,7 +66,7 @@ export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [userName, setUserName] = useState("");
-  const [allowedMenuPaths, setAllowedMenuPaths] = useState<string[]>([]);
+  const [allowedMenuPaths] = useState<string[]>(() => getAllowedRoutes());
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -101,35 +102,16 @@ export default function AdminLayout() {
   const breadcrumbs = getBreadcrumbs();
 
   const menuItems = useMemo(() => {
-    if (allowedMenuPaths.length === 0) return defaultMenuItems;
-    return defaultMenuItems.filter(
-      (item) =>
-        allowedMenuPaths.includes(item.path) ||
-        item.path === "/menus" ||
-        item.path === "/notifications" ||
-        item.path === "/system-params",
-    );
+    return defaultMenuItems.filter((item) => allowedMenuPaths.includes(item.path));
   }, [allowedMenuPaths]);
 
   useEffect(() => {
     getCurrentUser()
       .then((user) => setUserName(user.name))
       .catch(() => {
-        clearToken();
-        navigate("/login", { replace: true });
+        logoutToLogin();
       });
-    getCurrentUserMenus()
-      .then((menus) => {
-        const paths = menus
-          .map((menu) => menu.route_path || "")
-          .filter((path): path is string => path.startsWith("/"));
-        setAllowedMenuPaths(paths);
-      })
-      .catch(() => {
-        // 菜单接口失败时回退到默认菜单，不阻塞页面
-        setAllowedMenuPaths([]);
-      });
-  }, [navigate]);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,9 +124,8 @@ export default function AdminLayout() {
     } catch {
       // logout 接口失败时仍清理本地会话，避免僵尸登录态
     } finally {
-      clearToken();
+      logoutToLogin();
       toast.success("已退出登录");
-      navigate("/login", { replace: true });
     }
   };
 

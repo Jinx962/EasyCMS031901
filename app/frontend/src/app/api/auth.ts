@@ -16,6 +16,19 @@ interface LoginResponse {
   user: LoginUser;
 }
 
+export interface CurrentUserMenu {
+  id: number;
+  parent_id: number | null;
+  type: number;
+  name: string;
+  permission: string;
+  route_path: string | null;
+  component: string | null;
+  icon: string | null;
+  sort: number;
+  children: CurrentUserMenu[];
+}
+
 export async function login(username: string, password: string) {
   const result = await httpRequest<LoginResponse>("/api/v1/auth/login", {
     method: "POST",
@@ -49,18 +62,5 @@ export async function getCurrentUser() {
 }
 
 export async function getCurrentUserMenus() {
-  return httpRequest<
-    Array<{
-      id: number;
-      parent_id: number | null;
-      type: number;
-      name: string;
-      permission: string;
-      route_path: string | null;
-      component: string | null;
-      icon: string | null;
-      sort: number;
-      children: unknown[];
-    }>
-  >("/api/v1/auth/menus");
+  return httpRequest<CurrentUserMenu[]>("/api/v1/auth/menus");
 }

@@ -4,6 +4,7 @@ import { ArrowLeft, Edit, Power, PowerOff } from "lucide-react";
 import { toast } from "sonner";
 import { getRoles, getUserDetail, updateUser, updateUserStatus, type RoleOption, type UserDetail as UserDetailModel } from "../api/admin";
 import { formatDateTime } from "../lib/date";
+import { parseFieldErrors } from "../lib/form";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import {
@@ -52,6 +53,7 @@ export default function UserDetail() {
     role_ids: [] as string[],
     remark: "",
   });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const canSubmit = useMemo(() => {
     return Boolean(editForm.name.trim() && editForm.org_id.trim() && editForm.role_ids.length > 0);
@@ -71,6 +73,7 @@ export default function UserDetail() {
         role_ids: detail.roles.map((role) => String(role.id)),
         remark: detail.remark || "",
       });
+      setFieldErrors({});
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "用户详情加载失败");
       setUser(null);
@@ -117,10 +120,16 @@ export default function UserDetail() {
 
   const handleSave = async () => {
     if (!canSubmit) {
+      setFieldErrors({
+        name: editForm.name.trim() ? "" : "请输入姓名",
+        org_id: editForm.org_id.trim() ? "" : "请输入所属组织 ID",
+        role_ids: editForm.role_ids.length > 0 ? "" : "请选择角色",
+      });
       toast.error("请完整填写必填字段");
       return;
     }
     try {
+      setFieldErrors({});
       setSaving(true);
       const updated = await updateUser(user.id, {
         name: editForm.name.trim(),
@@ -134,6 +143,10 @@ export default function UserDetail() {
       setEditOpen(false);
       toast.success("用户信息已更新");
     } catch (error) {
+      const nextErrors = parseFieldErrors(error);
+      if (Object.keys(nextErrors).length > 0) {
+        setFieldErrors(nextErrors);
+      }
       toast.error(error instanceof Error ? error.message : "用户更新失败");
     } finally {
       setSaving(false);
@@ -223,11 +236,21 @@ export default function UserDetail() {
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label>姓名 *</Label>
-              <Input value={editForm.name} onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))} />
+              <Input
+                value={editForm.name}
+                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                className={fieldErrors.name ? "border-red-500 focus-visible:ring-red-500" : undefined}
+              />
+              {fieldErrors.name ? <p className="text-xs text-red-500">{fieldErrors.name}</p> : null}
             </div>
             <div className="grid gap-2">
               <Label>所属组织 ID *</Label>
-              <Input value={editForm.org_id} onChange={(e) => setEditForm((f) => ({ ...f, org_id: e.target.value }))} />
+              <Input
+                value={editForm.org_id}
+                onChange={(e) => setEditForm((f) => ({ ...f, org_id: e.target.value }))}
+                className={fieldErrors.org_id ? "border-red-500 focus-visible:ring-red-500" : undefined}
+              />
+              {fieldErrors.org_id ? <p className="text-xs text-red-500">{fieldErrors.org_id}</p> : null}
             </div>
             <div className="grid gap-2">
               <Label>用户类型 *</Label>
@@ -254,6 +277,7 @@ export default function UserDetail() {
                   ))}
                 </SelectContent>
               </Select>
+              {fieldErrors.role_ids ? <p className="text-xs text-red-500">{fieldErrors.role_ids}</p> : null}
             </div>
             <div className="grid gap-2">
               <Label>备注</Label>

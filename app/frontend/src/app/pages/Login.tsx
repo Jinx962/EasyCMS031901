@@ -6,6 +6,27 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { ApiError } from "../lib/http";
+
+function resolveLoginErrorMessage(error: unknown): string {
+  if (!(error instanceof ApiError)) {
+    return error instanceof Error ? error.message : "登录失败，请稍后重试";
+  }
+
+  if (error.code === 1002) {
+    return "Token 失效，请重新登录";
+  }
+
+  const message = error.message || "";
+  if (message.includes("锁定")) {
+    return "账号已锁定，请联系管理员或稍后重试";
+  }
+  if (message.includes("用户名或密码错误")) {
+    return "用户名或密码错误，请重新输入";
+  }
+
+  return message || "登录失败，请稍后重试";
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -28,7 +49,7 @@ export default function Login() {
       toast.success("登录成功");
       navigate("/", { replace: true });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "登录失败");
+      toast.error(resolveLoginErrorMessage(error));
     } finally {
       setSubmitting(false);
     }
